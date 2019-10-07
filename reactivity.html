@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Reactivity demonstration</title>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+  <script type="text/javascript">
+    let data = {
+      quantity: 0,
+      pricePerUnit: 5,
+      totalCost: 0
+    }
+
+    let dependentMethods = {}
+    let methodToBeWatched
+
+    let watchedData = new Proxy( data, {
+      get( object, property) {
+        if ( ! dependentMethods[property] ) {
+          dependentMethods[property] = []
+        }
+        if ((methodToBeWatched !== null) && (! dependentMethods[property].includes(methodToBeWatched)) ) {
+          dependentMethods[property].push(methodToBeWatched)
+        }
+        return object[property]
+      },
+      set( object, property, value ) {
+        if ( object[property] !== value) {
+          object[property] = value
+          dependentMethods[property].forEach(dependentMethod => {
+              dependentMethod()
+            })
+        }
+      }
+      })
+
+    function costIncurred () {
+      watchedData.totalCost = watchedData.quantity * watchedData.pricePerUnit;
+    }
+
+    function invokeMethod (method) {
+      methodToBeWatched = method
+      method()
+      methodToBeWatched = null
+    }
+
+    invokeMethod(costIncurred)
+
+    document.getElementById('app').addEventListener('click', function () {
+      let event = window.event;
+      let attributes = event.target.attributes;
+      for(let attribute of attributes) {
+        if (attribute["name"] === "@click") {
+          eval(attribute["value"])
+          break;
+        }
+      }
+    })
+
+    function increaseQuantity() {
+      watchedData.quantity += 1
+    }
+
+    function decreaseQuantity() {
+      if (watchedData.quantity !== 0) {
+        watchedData.quantity -= 1
+      }
+    }
+
+    function paint() {
+      document.getElementById('app').innerHTML = `<div><span>Quantity: ${watchedData.quantity}</span> &nbsp;<button @click="increaseQuantity()">+</button>&nbsp;<button @click="decreaseQuantity()">-</button></div><div><span>Price per unit: ${watchedData.pricePerUnit}</span></div><div><span>Total cost incurred: ${watchedData.totalCost}</span></div>`
+    }
+
+    invokeMethod(paint);
+  </script>
+</html>
